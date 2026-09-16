@@ -11,7 +11,7 @@ Nền tảng luyện phỏng vấn xây dựng bằng Next.js, React và TypeScr
 
 ## Chạy trên máy
 
-Yêu cầu Node.js 22 trở lên và npm.
+Yêu cầu Node.js 22.x và npm. Phiên bản Node được khai báo trong `package.json` để Vercel dùng cùng phiên bản major với môi trường đã kiểm tra.
 
 ```powershell
 npm.cmd ci
@@ -69,6 +69,16 @@ npm.cmd start
 ```
 
 Build cần cấu hình Firebase hợp lệ và kết nối mạng để tải font Google.
+
+Bản production dùng `next build --webpack` để nạp Firebase Admin qua tên package gốc, tránh phụ thuộc vào alias `firebase-admin-<hash>` của Turbopack trong bản deploy. Lệnh `npm run dev` vẫn dùng Turbopack.
+
+## Deploy trên Vercel
+
+Import repository, dùng lệnh build `npm run build` và điền các biến môi trường thực tế trong **Settings → Environment Variables** cho môi trường Production/Preview tương ứng. File `.env.local` trên máy không nằm trong repository.
+
+Trong ô Value của `FIREBASE_PRIVATE_KEY`, chỉ dán nội dung khóa PEM có đầy đủ header/footer, không kèm `FIREBASE_PRIVATE_KEY=`, dấu ngoặc kép bao quanh hoặc dấu phẩy. Code hỗ trợ xuống dòng thật và ký tự `\n`. Dấu ngoặc kép trong `.env.example` là cú pháp của file `.env`, không phải một phần của khóa.
+
+Sau khi đổi biến môi trường, tạo deployment mới. Khi đổi cách build để xử lý lỗi module, redeploy với **Use existing Build Cache** tắt để kiểm tra bản build mới.
 
 ## Cấu trúc chính
 
