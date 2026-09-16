@@ -11,6 +11,11 @@
     "start": "next start",
     "lint": "eslint"
   },
+   "overrides": {
+    "jwks-rsa": {
+      "jose": "4.15.9"
+    }
+  },
   "dependencies": {
     "@ai-sdk/google": "^4.0.72",
     "@base-ui/react": "^1.8.0",
