@@ -11,6 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import {
   createUserWithEmailAndPassword,
+  signOut,
   signInWithEmailAndPassword,
 } from "firebase/auth";
 
@@ -24,9 +25,9 @@ type FormType = "sign-in" | "sign-up";
 
 const authFormSchema = (type: FormType) => {
   return z.object({
-    name: type === "sign-up" ? z.string().min(3) : z.string().optional(),
-    email: z.string().email(),
-    password: z.string().min(3),
+    name: type === "sign-up" ? z.string().trim().min(3).max(80) : z.string().optional(),
+    email: z.string().trim().email(),
+    password: z.string().min(6, "Password must contain at least 6 characters").max(128),
   });
 };
 
@@ -54,18 +55,20 @@ const AuthForm = ({ type }: { type: FormType }) => {
           password
         );
 
+        const idToken = await userCredential.user.getIdToken();
+
         const result = await signUp({
-          uid: userCredential.user.uid,
           name: name!,
-          email,
-          password,
+          idToken,
         });
 
         if (!result.success) {
+          await signOut(auth);
           toast.error(result.message);
           return;
         }
 
+        await signOut(auth);
         toast.success("Account created successfully. Please sign in.");
         router.push("/sign-in");
       } else {
@@ -89,16 +92,30 @@ const AuthForm = ({ type }: { type: FormType }) => {
         });
 
         if (!result.success) {
+          await signOut(auth);
           toast.error(result.message);
           return;
         }
 
         toast.success("Signed in successfully.");
-        router.push("/");
+        router.replace("/");
+        router.refresh();
       }
     } catch (error) {
-      console.log(error);
-      toast.error(`There was an error: ${error}`);
+      console.error("Authentication failed", error);
+
+      const errorCode = error && typeof error === "object" && "code" in error
+        ? String(error.code)
+        : "";
+      const message = errorCode === "auth/email-already-in-use"
+        ? "This email is already in use."
+        : errorCode === "auth/invalid-credential"
+          ? "Incorrect email or password."
+          : errorCode === "auth/weak-password"
+            ? "Password must contain at least 6 characters."
+            : "Authentication failed. Please try again.";
+
+      toast.error(message);
     }
   };
 
@@ -145,8 +162,12 @@ const AuthForm = ({ type }: { type: FormType }) => {
               type="password"
             />
 
-            <Button className="btn" type="submit">
-              {isSignIn ? "Sign In" : "Create an Account"}
+            <Button className="btn" type="submit" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting
+                ? "Please wait..."
+                : isSignIn
+                  ? "Sign In"
+                  : "Create an Account"}
             </Button>
           </form>
         </Form>

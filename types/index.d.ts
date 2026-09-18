@@ -15,6 +15,7 @@ interface Feedback {
 
 interface Interview {
   id: string;
+  coverImage?: string;
   role: string;
   level: string;
   questions: string[];
@@ -27,7 +28,6 @@ interface Interview {
 
 interface CreateFeedbackParams {
   interviewId: string;
-  userId: string;
   transcript: { role: string; content: string }[];
   feedbackId?: string;
 }
@@ -39,8 +39,9 @@ interface User {
 }
 
 interface InterviewCardProps {
-  interviewId?: string;
-  userId?: string;
+  id: string;
+  viewerId: string;
+  coverImage?: string;
   role: string;
   type: string;
   techstack: string[];
@@ -77,10 +78,8 @@ interface SignInParams {
 }
 
 interface SignUpParams {
-  uid: string;
   name: string;
-  email: string;
-  password: string;
+  idToken: string;
 }
 
 type FormType = "sign-in" | "sign-up";

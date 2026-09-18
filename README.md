@@ -1,48 +1,47 @@
 # interview_platform
 
-Nền tảng luyện phỏng vấn xây dựng bằng Next.js, React và TypeScript, sử dụng Firebase cho đăng nhập/lưu trữ và Gemini để tạo câu hỏi phỏng vấn. Giao diện hiện mang tên PrepWise.
+Nền tảng luyện phỏng vấn bằng Next.js, React và TypeScript. Firebase phụ trách đăng nhập, session và lưu dữ liệu; Gemini tạo câu hỏi và chấm feedback; Vapi thực hiện cuộc gọi giọng nói.
 
-## Chức năng hiện có
+## Chức năng
 
-- Đăng ký, đăng nhập bằng email/mật khẩu và session cookie Firebase.
-- Giao diện danh sách phỏng vấn với dữ liệu mẫu.
-- API tạo câu hỏi bằng Gemini và lưu vào collection `Interview` trong Firestore.
-- Giao diện cuộc gọi phỏng vấn đang dùng trạng thái và hội thoại mẫu; chưa kết nối cuộc gọi Vapi hoặc chấm điểm thực tế. Các trang chi tiết phỏng vấn và feedback chưa được triển khai.
+- Đăng ký và đăng nhập bằng Firebase Email/Password.
+- Tạo bộ câu hỏi phỏng vấn bằng giọng nói.
+- Thực hiện cuộc phỏng vấn với Vapi Assistant.
+- Lưu transcript và tạo feedback có cấu trúc bằng Gemini.
+- Xem lại điểm, nhận xét, điểm mạnh và phần cần cải thiện.
 
 ## Chạy trên máy
 
-Yêu cầu Node.js 22.x và npm. Phiên bản Node được khai báo trong `package.json` để Vercel dùng cùng phiên bản major với môi trường đã kiểm tra.
+Yêu cầu Node.js 22.x và npm.
 
 ```powershell
 npm.cmd ci
 Copy-Item .env.example .env.local
-```
-
-Điền cấu hình thực tế trong `.env.local` trước khi chạy server. Nếu đã có file này, giữ nguyên cấu hình đang dùng. Trên macOS/Linux, dùng `npm` và `cp .env.example .env.local`.
-
-```powershell
 npm.cmd run dev
 ```
 
-Mở `http://localhost:3000`. Trang chính yêu cầu đăng nhập.
+Mở `http://localhost:3000`. Điền các biến môi trường thật vào `.env.local` trước khi chạy.
 
-## Cấu hình
+## Biến môi trường
 
-| Biến môi trường | Nội dung |
+| Biến | Nội dung |
 | --- | --- |
-| `FIREBASE_PROJECT_ID` | Project ID của Firebase, không có dấu phẩy ở cuối |
-| `FIREBASE_CLIENT_EMAIL` | Email service account của Firebase Admin |
-| `FIREBASE_PRIVATE_KEY` | Private key của service account, đặt trong dấu ngoặc kép và giữ ký tự `\n` |
+| `FIREBASE_PROJECT_ID` | Project ID của Firebase Admin |
+| `FIREBASE_CLIENT_EMAIL` | Email của Firebase service account |
+| `FIREBASE_PRIVATE_KEY` | Private key PEM, dùng `\n` khi lưu trên một dòng |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | API key Gemini |
-| `NEXT_PUBLIC_VAPI_WEB_TOKEN` | Public web token Vapi |
+| `GOOGLE_GENERATIVE_AI_MODEL` | Model Gemini tùy chọn; mặc định `gemini-3.6-flash` |
+| `NEXT_PUBLIC_VAPI_WEB_TOKEN` | Public web token của Vapi |
 
-Bật phương thức đăng nhập Email/Password và tạo Firestore trong Firebase project. Cấu hình Firebase phía trình duyệt nằm trong `firebase/client.ts`; khi dùng Firebase project khác, cập nhật cấu hình này cho khớp với service account.
+Trong Vapi Dashboard, public key phải cho phép **Transient Assistants** và thêm `http://localhost:3000` cùng domain Vercel vào **Allowed Origins**. Dự án không dùng Vapi Workflows.
 
-`.env.local` được Git bỏ qua; `.env.example` chỉ chứa giá trị mẫu. Khởi động lại server sau khi thay đổi cấu hình Firebase Admin.
+Bật phương thức đăng nhập Email/Password và tạo Firestore trong Firebase project. Cấu hình trình duyệt tại `firebase/client.ts` phải trỏ cùng project với service account Firebase Admin.
 
-## Test API bằng Thunder Client
+## API tạo interview
 
-Gửi `POST http://localhost:3000/api/vapi/generate`, chọn Body → JSON và header `Content-Type: application/json`:
+`POST /api/vapi/generate` yêu cầu session đăng nhập hợp lệ. UID được lấy từ session trên server; client không được gửi `userid`.
+
+Body:
 
 ```json
 {
@@ -50,42 +49,33 @@ Gửi `POST http://localhost:3000/api/vapi/generate`, chọn Body → JSON và h
   "role": "Frontend Developer",
   "level": "junior",
   "techstack": "React,TypeScript",
-  "amount": 3,
-  "userid": "YOUR_FIREBASE_USER_UID"
+  "amount": 3
 }
 ```
 
-`userid` phải viết thường và `techstack` là chuỗi phân cách bằng dấu phẩy. Khi thành công, API trả `{"success":true}` và lưu một bản ghi vào Firestore. Model hiện được chọn trong `app/api/vapi/generate/route.ts`.
+Luồng bình thường gọi API này từ Vapi tool trong ứng dụng. Nếu dùng Thunder Client, cần gửi kèm cookie `session` của một tài khoản đã đăng nhập.
 
-`GET /api/vapi/generate` chỉ trả phản hồi kiểm tra route; không kiểm tra kết nối Gemini hay Firestore.
-
-## Kiểm tra và build
+## Kiểm tra
 
 ```powershell
-npm.cmd run lint
-npx.cmd tsc --noEmit
+npm.cmd run check
 npm.cmd run build
-npm.cmd start
 ```
 
-Build cần cấu hình Firebase hợp lệ và kết nối mạng để tải font Google.
+## Firestore
 
-Bản production dùng `next build --webpack` để nạp Firebase Admin qua tên package gốc, tránh phụ thuộc vào alias `firebase-admin-<hash>` của Turbopack trong bản deploy. Lệnh `npm run dev` vẫn dùng Turbopack.
+Các index nằm trong `firestore.indexes.json`. Nếu dùng Firebase CLI:
 
-## Deploy trên Vercel
+```powershell
+firebase deploy --only firestore:indexes,firestore:rules
+```
 
-Import repository, dùng lệnh build `npm run build` và điền các biến môi trường thực tế trong **Settings → Environment Variables** cho môi trường Production/Preview tương ứng. File `.env.local` trên máy không nằm trong repository.
+Rules hiện chỉ cho phép truy cập dữ liệu qua server Firebase Admin. Nếu thêm truy cập Firestore trực tiếp từ trình duyệt, cập nhật rules và kiểm thử bằng Emulator trước khi deploy.
 
-Trong ô Value của `FIREBASE_PRIVATE_KEY`, chỉ dán nội dung khóa PEM có đầy đủ header/footer, không kèm `FIREBASE_PRIVATE_KEY=`, dấu ngoặc kép bao quanh hoặc dấu phẩy. Code hỗ trợ xuống dòng thật và ký tự `\n`. Dấu ngoặc kép trong `.env.example` là cú pháp của file `.env`, không phải một phần của khóa.
+## Deploy Vercel
 
-Sau khi đổi biến môi trường, tạo deployment mới. Khi đổi cách build để xử lý lỗi module, redeploy với **Use existing Build Cache** tắt để kiểm tra bản build mới.
+Import repository, dùng lệnh build `npm run build`, rồi cấu hình đầy đủ biến môi trường cho Production và Preview.
 
-## Cấu trúc chính
+Trong Value của `FIREBASE_PRIVATE_KEY`, dán đúng khóa PEM có header/footer. Không kèm tên biến, dấu phẩy hoặc dấu ngoặc kép bao quanh. Code hỗ trợ cả xuống dòng thật và chuỗi `\n`.
 
-- `app/(auth)`: trang đăng ký và đăng nhập.
-- `app/(root)`: trang chính và giao diện phỏng vấn.
-- `app/api/vapi/generate`: API tạo câu hỏi.
-- `components`: giao diện và các thành phần dùng chung.
-- `firebase`: cấu hình Firebase client và Admin.
-- `lib/actions`: server actions xử lý tài khoản và session.
-- `lib/vapi.sdk.ts`: khởi tạo Vapi SDK.
+Sau khi thay đổi biến môi trường hoặc dependency, redeploy và tắt **Use existing Build Cache** nếu deployment cũ vẫn báo lỗi module.

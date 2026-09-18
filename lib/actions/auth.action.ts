@@ -2,14 +2,36 @@
 
 import { db, auth } from "@/firebase/admin";
 import { cookies } from "next/headers";
+import { z } from "zod";
 
 
 const ONE_WEEK = 60 * 60 * 24 * 7;
+const MAX_SESSION_LOGIN_AGE_SECONDS = 5 * 60;
+
+const signUpSchema = z.object({
+    name: z.string().trim().min(3).max(80),
+    idToken: z.string().min(1),
+});
+
+const signInSchema = z.object({
+    email: z.string().trim().email(),
+    idToken: z.string().min(1),
+});
 
 export async function signUp(params: SignUpParams) {
-    const { uid, name, email } = params;
-
     try {
+        const { name, idToken } = signUpSchema.parse(params);
+        const decodedToken = await auth.verifyIdToken(idToken, true);
+        const email = decodedToken.email;
+
+        if (!email) {
+            return {
+                success: false,
+                message: 'The authenticated account does not have an email address.'
+            }
+        }
+
+        const uid = decodedToken.uid;
         const userRecord = await db.collection('user').doc(uid).get();
 
         if (userRecord.exists) {
@@ -25,7 +47,7 @@ export async function signUp(params: SignUpParams) {
 
         return {
             success: true,
-            message: 'Acount created successfully. Please sign in.'
+            message: 'Account created successfully. Please sign in.'
         }
 
     } catch (e) {
@@ -46,17 +68,39 @@ export async function signUp(params: SignUpParams) {
 }
 
 export async function signIn(params: SignInParams) {
-    const { email, idToken } = params;
-
-
     try {
-        const userRecord = await auth.getUserByEmail(email);
+        const { email, idToken } = signInSchema.parse(params);
+        const decodedToken = await auth.verifyIdToken(idToken, true);
+        const verifiedEmail = decodedToken.email;
 
-        if (!userRecord) {
+        if (
+            typeof decodedToken.auth_time !== 'number' ||
+            Math.floor(Date.now() / 1000) - decodedToken.auth_time > MAX_SESSION_LOGIN_AGE_SECONDS
+        ) {
             return {
                 success: false,
-                message: 'User does not exists. Create an account instead.'
+                message: 'Please sign in again before starting a new session.'
             }
+        }
+
+        if (!verifiedEmail || verifiedEmail.toLowerCase() !== email.trim().toLowerCase()) {
+            return {
+                success: false,
+                message: 'The signed-in account does not match this email.'
+            }
+        }
+
+        const userRef = db.collection('user').doc(decodedToken.uid);
+        const userProfile = await userRef.get();
+
+        // A Firebase Auth account can remain when profile creation previously
+        // failed. Recreate that profile so authenticated routes can load it.
+        if (!userProfile.exists) {
+            const name = typeof decodedToken.name === 'string' && decodedToken.name.trim()
+                ? decodedToken.name.trim()
+                : verifiedEmail.split('@')[0];
+
+            await userRef.set({ name, email: verifiedEmail });
         }
 
         await setSessionCookie(idToken);
@@ -66,16 +110,16 @@ export async function signIn(params: SignInParams) {
             message: 'Signed in successfully.'
         }
     } catch (e) {
-        console.log(e);
+        console.error('Error signing in', e);
 
         return {
             success: false,
-            message: 'Failed to log into an account.'
+            message: 'Failed to prepare your account. Please try again.'
         }
     }
 }
 
-export async function setSessionCookie(idToken: string) {
+async function setSessionCookie(idToken: string) {
     const cookieStore = await cookies();
 
     const sessionCookie = await auth.createSessionCookie(idToken, {

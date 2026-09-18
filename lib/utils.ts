@@ -15,7 +15,10 @@ const normalizeTechName = (tech: string) => {
 
 const checkIconExists = async (url: string) => {
   try {
-    const response = await fetch(url, { method: "HEAD" });
+    const response = await fetch(url, {
+      method: "HEAD",
+      next: { revalidate: 24 * 60 * 60 },
+    });
     return response.ok; // Returns true if the icon exists
   } catch {
     return false;
@@ -25,16 +28,22 @@ const checkIconExists = async (url: string) => {
 export const getTechLogos = async (techArray: string[]) => {
   const logoURLs = techArray.map((tech) => {
     const normalized = normalizeTechName(tech);
+
+    if (!normalized) {
+      return { tech, url: "/tech.svg", local: true };
+    }
+
     return {
       tech,
       url: `${techIconBaseURL}/${normalized}/${normalized}-original.svg`,
+      local: false,
     };
   });
 
   const results = await Promise.all(
-    logoURLs.map(async ({ tech, url }) => ({
+    logoURLs.map(async ({ tech, url, local }) => ({
       tech,
-      url: (await checkIconExists(url)) ? url : "/tech.svg",
+      url: local || (await checkIconExists(url)) ? url : "/tech.svg",
     }))
   );
 

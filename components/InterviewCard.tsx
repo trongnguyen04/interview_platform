@@ -4,9 +4,18 @@ import Link from 'next/link'
 import { getRandomInterviewCover } from "@/lib/utils"
 import { Button } from '@/components/ui/button';
 import DisplayTechIcons from './DisplayTechIcon';
+import { getFeedbackByInterviewId } from '@/lib/actions/general.action';
 
-const InterviewCard = ({ interviewId, role, type, techstack, createdAt }: InterviewCardProps) => {
-    const feedback = null as Feedback | null;
+const InterviewCard = async ({
+    id,
+    viewerId,
+    type,
+    role,
+    techstack,
+    createdAt,
+    coverImage,
+}: InterviewCardProps) => {
+    const feedback = await getFeedbackByInterviewId({ interviewId: id, userId: viewerId });
     const normalizedType = /mix/gi.test(type) ? 'Mixed' : type;
     const interviewDate = feedback?.createdAt || createdAt;
     const formattedDate = interviewDate ? dayjs(interviewDate).format('MMM D, YYYY') : 'Date unavailable';
@@ -19,7 +28,13 @@ const InterviewCard = ({ interviewId, role, type, techstack, createdAt }: Interv
                         <p className='badge-text'>{normalizedType}</p>
                     </div>
 
-                    <Image src={getRandomInterviewCover()} alt='cover-image' width={90} height={90} className='rounded-full object-fit size-[90px]' />
+                    <Image
+                        src={coverImage ?? getRandomInterviewCover()}
+                        alt={`${role} interview cover`}
+                        width={90}
+                        height={90}
+                        className='rounded-full object-cover size-[90px]'
+                    />
 
                     <h3 className='mt-5 capitalize'>
                         {role} Interview
@@ -35,7 +50,7 @@ const InterviewCard = ({ interviewId, role, type, techstack, createdAt }: Interv
                         <div className='flex flex-row gap-2 items-center'>
                             <Image src='/star.svg' alt='star' width={22} height={22} />
                             <p>
-                                {feedback?.totalScore || '---'}/100
+                                {feedback?.totalScore ?? '---'}/100
                             </p>
                         </div>
                     </div>
@@ -46,13 +61,15 @@ const InterviewCard = ({ interviewId, role, type, techstack, createdAt }: Interv
                 <div className='flex flex-row justify-between'>
                     <DisplayTechIcons techStack={techstack} />
 
-                    <Button className='btn-primary'>
-                        <Link href={feedback
-                            ? `/interview/${interviewId}/feedback`
-                            : `/interview/${interviewId}`
-                        }>
-                            {feedback ? 'Check Feedback' : 'View Interview'}
-                        </Link>
+                    <Button
+                        render={<Link href={feedback
+                            ? `/interview/${id}/feedback`
+                            : `/interview/${id}`
+                        } />}
+                        nativeButton={false}
+                        className='btn-primary'
+                    >
+                        {feedback ? 'Check Feedback' : 'View Interview'}
                     </Button>
                 </div>
             </div>

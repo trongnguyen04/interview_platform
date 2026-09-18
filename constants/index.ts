@@ -1,5 +1,78 @@
-// import { CreateAssistantDTO } from "@vapi-ai/web/dist/api";
-// import { z } from "zod";
+import type { CreateAssistantDTO } from "@vapi-ai/web/dist/api";
+import { z } from "zod";
+
+export const interviewGenerator: CreateAssistantDTO = {
+  name: "Interview Generator",
+  firstMessage:
+    "Hi {{username}}! I'll help you create a practice interview. What job role are you preparing for?",
+  transcriber: {
+    provider: "deepgram",
+    model: "nova-2",
+    language: "en",
+  },
+  voice: {
+    provider: "vapi",
+    voiceId: "Elliot",
+    version: "2",
+  },
+  model: {
+    provider: "openai",
+    model: "gpt-4.1",
+    messages: [
+      {
+        role: "system",
+        content: `You help a user configure a practice job interview.
+
+Collect these five values, asking one short question at a time:
+1. The job role.
+2. The experience level.
+3. The technology stack as a comma-separated list.
+4. The interview focus: technical, behavioral, or mixed.
+5. The number of questions, from 1 to 10.
+
+After collecting everything, summarize the choices and ask the user to confirm them. Only after explicit confirmation, call the generateInterview tool exactly once. Do not invent missing values. After calling the tool, tell the user the interview is being created and wait; the application will finish the call. Keep every spoken response brief and use the language the user speaks.`,
+      },
+    ],
+    tools: [
+      {
+        type: "function",
+        async: true,
+        function: {
+          name: "generateInterview",
+          description:
+            "Create the practice interview after all settings have been collected and the user has explicitly confirmed them.",
+          parameters: {
+            type: "object",
+            properties: {
+              role: {
+                type: "string",
+                description: "The job role the user is preparing for.",
+              },
+              level: {
+                type: "string",
+                description: "The user's experience level.",
+              },
+              techstack: {
+                type: "string",
+                description: "Technologies separated by commas.",
+              },
+              type: {
+                type: "string",
+                enum: ["technical", "behavioral", "mixed"],
+                description: "The desired interview focus.",
+              },
+              amount: {
+                type: "number",
+                description: "The number of interview questions, from 1 to 10.",
+              },
+            },
+            required: ["role", "level", "techstack", "type", "amount"],
+          },
+        },
+      },
+    ],
+  },
+};
 
 export const mappings = {
   "react.js": "react",
@@ -97,97 +170,97 @@ export const mappings = {
   "aws amplify": "amplify",
 };
 
-// export const interviewer: CreateAssistantDTO = {
-//   name: "Interviewer",
-//   firstMessage:
-//     "Hello! Thank you for taking the time to speak with me today. I'm excited to learn more about you and your experience.",
-//   transcriber: {
-//     provider: "deepgram",
-//     model: "nova-2",
-//     language: "en",
-//   },
-//   voice: {
-//     provider: "11labs",
-//     voiceId: "sarah",
-//     stability: 0.4,
-//     similarityBoost: 0.8,
-//     speed: 0.9,
-//     style: 0.5,
-//     useSpeakerBoost: true,
-//   },
-//   model: {
-//     provider: "openai",
-//     model: "gpt-4",
-//     messages: [
-//       {
-//         role: "system",
-//         content: `You are a professional job interviewer conducting a real-time voice interview with a candidate. Your goal is to assess their qualifications, motivation, and fit for the role.
+export const interviewer: CreateAssistantDTO = {
+  name: "Interviewer",
+  firstMessage:
+    "Hello! Thank you for taking the time to speak with me today. I'm excited to learn more about you and your experience.",
+  transcriber: {
+    provider: "deepgram",
+    model: "nova-2",
+    language: "en",
+  },
+  voice: {
+    provider: "11labs",
+    voiceId: "sarah",
+    stability: 0.4,
+    similarityBoost: 0.8,
+    speed: 0.9,
+    style: 0.5,
+    useSpeakerBoost: true,
+  },
+  model: {
+    provider: "openai",
+    model: "gpt-4",
+    messages: [
+      {
+        role: "system",
+        content: `You are a professional job interviewer conducting a real-time voice interview with a candidate. Your goal is to assess their qualifications, motivation, and fit for the role.
 
-// Interview Guidelines:
-// Follow the structured question flow:
-// {{questions}}
+Interview Guidelines:
+Follow the structured question flow:
+{{questions}}
 
-// Engage naturally & react appropriately:
-// Listen actively to responses and acknowledge them before moving forward.
-// Ask brief follow-up questions if a response is vague or requires more detail.
-// Keep the conversation flowing smoothly while maintaining control.
-// Be professional, yet warm and welcoming:
+Engage naturally & react appropriately:
+Listen actively to responses and acknowledge them before moving forward.
+Ask brief follow-up questions if a response is vague or requires more detail.
+Keep the conversation flowing smoothly while maintaining control.
+Be professional, yet warm and welcoming:
 
-// Use official yet friendly language.
-// Keep responses concise and to the point (like in a real voice interview).
-// Avoid robotic phrasing—sound natural and conversational.
-// Answer the candidate’s questions professionally:
+Use official yet friendly language.
+Keep responses concise and to the point (like in a real voice interview).
+Avoid robotic phrasing; sound natural and conversational.
+Answer the candidate's questions professionally:
 
-// If asked about the role, company, or expectations, provide a clear and relevant answer.
-// If unsure, redirect the candidate to HR for more details.
+If asked about the role, company, or expectations, provide a clear and relevant answer.
+If unsure, redirect the candidate to HR for more details.
 
-// Conclude the interview properly:
-// Thank the candidate for their time.
-// Inform them that the company will reach out soon with feedback.
-// End the conversation on a polite and positive note.
+Conclude the interview properly:
+Thank the candidate for their time.
+Inform them that the company will reach out soon with feedback.
+End the conversation on a polite and positive note.
 
 
-// - Be sure to be professional and polite.
-// - Keep all your responses short and simple. Use official language, but be kind and welcoming.
-// - This is a voice conversation, so keep your responses short, like in a real conversation. Don't ramble for too long.`,
-//       },
-//     ],
-//   },
-// };
+- Be sure to be professional and polite.
+- Keep all your responses short and simple. Use official language, but be kind and welcoming.
+- This is a voice conversation, so keep your responses short, like in a real conversation. Don't ramble for too long.`,
+      },
+    ],
+  },
+};
 
-// export const feedbackSchema = z.object({
-//   totalScore: z.number(),
-//   categoryScores: z.tuple([
-//     z.object({
-//       name: z.literal("Communication Skills"),
-//       score: z.number(),
-//       comment: z.string(),
-//     }),
-//     z.object({
-//       name: z.literal("Technical Knowledge"),
-//       score: z.number(),
-//       comment: z.string(),
-//     }),
-//     z.object({
-//       name: z.literal("Problem Solving"),
-//       score: z.number(),
-//       comment: z.string(),
-//     }),
-//     z.object({
-//       name: z.literal("Cultural Fit"),
-//       score: z.number(),
-//       comment: z.string(),
-//     }),
-//     z.object({
-//       name: z.literal("Confidence and Clarity"),
-//       score: z.number(),
-//       comment: z.string(),
-//     }),
-//   ]),
-//   strengths: z.array(z.string()),
-//   areasForImprovement: z.array(z.string()),
-//   finalAssessment: z.string(),
-// });
+export const feedbackSchema = z.object({
+  totalScore: z.number().min(0).max(100),
+  categoryScores: z.tuple([
+    z.object({
+      name: z.literal("Communication Skills"),
+      score: z.number().min(0).max(100),
+      comment: z.string().trim().min(1).max(2000),
+    }),
+    z.object({
+      name: z.literal("Technical Knowledge"),
+      score: z.number().min(0).max(100),
+      comment: z.string().trim().min(1).max(2000),
+    }),
+    z.object({
+      name: z.literal("Problem Solving"),
+      score: z.number().min(0).max(100),
+      comment: z.string().trim().min(1).max(2000),
+    }),
+    z.object({
+      name: z.literal("Cultural Fit"),
+      score: z.number().min(0).max(100),
+      comment: z.string().trim().min(1).max(2000),
+    }),
+    z.object({
+      name: z.literal("Confidence and Clarity"),
+      score: z.number().min(0).max(100),
+      comment: z.string().trim().min(1).max(2000),
+    }),
+  ]),
+  strengths: z.array(z.string().trim().min(1).max(500)).min(1).max(10),
+  areasForImprovement: z.array(z.string().trim().min(1).max(500)).min(1).max(10),
+  finalAssessment: z.string().trim().min(1).max(4000),
+});
 
 export const interviewCovers = [
   "/adobe.png",
