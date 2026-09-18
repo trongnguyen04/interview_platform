@@ -22,16 +22,23 @@ const mapFeedback = (
   id: document.id,
 }) as Feedback;
 
+const createdAtTime = (value?: string) => {
+  const timestamp = Date.parse(value ?? "");
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+};
+
+const newestFirst = (left: { createdAt?: string }, right: { createdAt?: string }) =>
+  createdAtTime(right.createdAt) - createdAtTime(left.createdAt);
+
 export async function getInterviewsByUserId(userId: string): Promise<Interview[]> {
   if (!userId) return [];
 
   const interviews = await db
     .collection(INTERVIEW_COLLECTION)
     .where("userId", "==", userId)
-    .orderBy("createdAt", "desc")
     .get();
 
-  return interviews.docs.map(mapInterview);
+  return interviews.docs.map(mapInterview).sort(newestFirst);
 }
 
 export async function getLatestInterviews(
@@ -41,19 +48,17 @@ export async function getLatestInterviews(
   const requestedLimit = Number.isFinite(params.limit) ? Math.floor(params.limit ?? 20) : 20;
   const limit = Math.min(Math.max(requestedLimit, 1), 50);
 
-  // Firestore requires an inequality field to be the first orderBy field.
-  // Fetch a larger latest set and remove the current user's interviews on the
-  // server so the result can remain ordered by createdAt.
+  // Use Firestore's automatic single-field index. Filtering finalized/current
+  // user on the server avoids requiring a composite index in every deployment.
   const interviews = await db
     .collection(INTERVIEW_COLLECTION)
-    .where("finalized", "==", true)
     .orderBy("createdAt", "desc")
     .limit(Math.min(limit * 3, 100))
     .get();
 
   return interviews.docs
     .map(mapInterview)
-    .filter((interview) => interview.userId !== userId)
+    .filter((interview) => interview.finalized && interview.userId !== userId)
     .slice(0, limit);
 }
 
@@ -89,11 +94,9 @@ export async function getFeedbackByInterviewId(
   const legacyFeedback = await feedbackCollection
     .where("interviewId", "==", interviewId)
     .where("userId", "==", userId)
-    .orderBy("createdAt", "desc")
-    .limit(1)
     .get();
 
   if (legacyFeedback.empty) return null;
 
-  return mapFeedback(legacyFeedback.docs[0]);
+  return legacyFeedback.docs.map(mapFeedback).sort(newestFirst)[0] ?? null;
 }
